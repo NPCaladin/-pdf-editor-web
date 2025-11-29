@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 임시 파일
+temp/
+*.tmp
+*.log
+
+# 배포 관련 문서 (선택사항 - 포함해도 됨)
+# DEPLOY.md
+# RAILWAY-배포-가이드.md
+# README-DEPLOY.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 배포 관련
+.env
+.venv
+

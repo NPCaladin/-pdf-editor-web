@@ -1,0 +1,38 @@
+Railway 배포 빠른 시작 가이드
+================================
+
+1. Git 설치 (없다면)
+   - https://git-scm.com/download/win
+   - 다운로드 후 설치
+
+2. GitHub 저장소 생성
+   - https://github.com 접속
+   - 로그인 후 "+" → "New repository"
+   - 이름: pdf-editor-web
+   - "Add README" 체크 해제
+   - Create repository
+
+3. 로컬에서 업로드 (PowerShell에서 실행)
+   
+   cd C:\Users\master\Desktop\new_aladin
+   
+   git init
+   git add app.py requirements-web.txt Procfile runtime.txt .gitignore templates/ static/
+   git commit -m "Initial commit"
+   git remote add origin https://github.com/YOUR_USERNAME/pdf-editor-web.git
+   git branch -M main
+   git push -u origin main
+
+4. Railway 배포
+   - https://railway.app 접속
+   - "Login with GitHub" 클릭
+   - "New Project" → "Deploy from GitHub repo"
+   - 저장소 선택 → "Deploy Now"
+   - 완료!
+
+5. 도메인 확인
+   - Settings → Generate Domain
+   - URL로 접속하여 확인
+
+자세한 내용은 RAILWAY-배포-가이드.md 참고
+
