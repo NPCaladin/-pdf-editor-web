@@ -30,52 +30,61 @@ document.getElementById('btn-add-pages').addEventListener('click', () => addPage
 addPageFileInput.addEventListener('change', handleAddPages);
 mergeFileInput.addEventListener('change', handleMergeFiles);
 
-// 마우스 드래그로 스크롤 (panning) - 최적화된 버전
+// 마우스 드래그로 스크롤 (panning) - 최종 개선 버전
 let isPanning = false;
 let panStartX = 0;
 let panStartY = 0;
 let panStartScrollLeft = 0;
 let panStartScrollTop = 0;
+let rafId = null;
 
-// throttling 제거 - 직접 스크롤 업데이트로 더 부드럽게
 function updateScrollPosition(deltaX, deltaY) {
-    // 직접 스크롤 업데이트 (즉시 반응, 최대한 부드럽게)
-    pdfContainer.scrollLeft = panStartScrollLeft - deltaX;
-    pdfContainer.scrollTop = panStartScrollTop - deltaY;
+    // requestAnimationFrame을 사용하여 부드러운 업데이트
+    if (rafId) {
+        cancelAnimationFrame(rafId);
+    }
+    
+    rafId = requestAnimationFrame(() => {
+        pdfContainer.scrollLeft = panStartScrollLeft - deltaX;
+        pdfContainer.scrollTop = panStartScrollTop - deltaY;
+        rafId = null;
+    });
 }
 
+// 전역 이벤트로 처리하여 더 부드럽게
 pdfContainer.addEventListener('mousedown', (e) => {
-    if (e.button === 0) { // 왼쪽 마우스 버튼
+    if (e.button === 0 && !e.target.closest('canvas')) { // 캔버스가 아닌 곳에서만
         isPanning = true;
         panStartX = e.clientX;
         panStartY = e.clientY;
         panStartScrollLeft = pdfContainer.scrollLeft;
         panStartScrollTop = pdfContainer.scrollTop;
         pdfContainer.style.cursor = 'grabbing';
-        pdfContainer.style.userSelect = 'none'; // 텍스트 선택 방지
-        pdfContainer.style.pointerEvents = 'auto'; // 포인터 이벤트 활성화
+        pdfContainer.style.userSelect = 'none';
         e.preventDefault();
-        e.stopPropagation();
     }
 }, { passive: false });
 
-pdfContainer.addEventListener('mousemove', (e) => {
+// 전역 mousemove로 처리 (컨테이너 밖에서도 작동)
+document.addEventListener('mousemove', (e) => {
     if (isPanning) {
         const deltaX = e.clientX - panStartX;
         const deltaY = e.clientY - panStartY;
         updateScrollPosition(deltaX, deltaY);
         e.preventDefault();
-        e.stopPropagation();
     }
 }, { passive: false });
 
-pdfContainer.addEventListener('mouseup', (e) => {
+// 전역 mouseup으로 처리
+document.addEventListener('mouseup', (e) => {
     if (isPanning) {
         isPanning = false;
         pdfContainer.style.cursor = 'grab';
-        pdfContainer.style.userSelect = 'auto'; // 텍스트 선택 복원
-        e.preventDefault();
-        e.stopPropagation();
+        pdfContainer.style.userSelect = 'auto';
+        if (rafId) {
+            cancelAnimationFrame(rafId);
+            rafId = null;
+        }
     }
 }, { passive: false });
 
@@ -84,19 +93,12 @@ pdfContainer.addEventListener('mouseleave', (e) => {
         isPanning = false;
         pdfContainer.style.cursor = 'grab';
         pdfContainer.style.userSelect = 'auto';
-        e.preventDefault();
-        e.stopPropagation();
+        if (rafId) {
+            cancelAnimationFrame(rafId);
+            rafId = null;
+        }
     }
 }, { passive: false });
-
-// 전역 mouseup 이벤트 (컨테이너 밖에서도 드래그 해제)
-document.addEventListener('mouseup', (e) => {
-    if (isPanning) {
-        isPanning = false;
-        pdfContainer.style.cursor = 'grab';
-        pdfContainer.style.userSelect = 'auto';
-    }
-});
 
 // 스크롤 이벤트 (휠)
 pdfContainer.addEventListener('wheel', (e) => {
