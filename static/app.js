@@ -18,6 +18,14 @@ function detectMobile() {
                 menuToggle.innerHTML = '☰';
                 menuToggle.setAttribute('aria-label', '메뉴 열기');
                 
+                // 패널 닫기 함수
+                const closePanel = () => {
+                    const leftPanel = document.querySelector('.left-panel');
+                    leftPanel.classList.remove('show');
+                    menuToggle.innerHTML = '☰';
+                    menuToggle.setAttribute('aria-label', '메뉴 열기');
+                };
+                
                 // 메뉴 토글 함수
                 const toggleMenu = (e) => {
                     e.stopPropagation();
@@ -25,13 +33,11 @@ function detectMobile() {
                     const isOpen = leftPanel.classList.contains('show');
                     
                     if (isOpen) {
-                        leftPanel.classList.remove('show');
-                        menuToggle.innerHTML = '☰';
-                        menuToggle.setAttribute('aria-label', '메뉴 열기');
+                        closePanel();
                     } else {
                         leftPanel.classList.add('show');
-                        menuToggle.innerHTML = '×';
-                        menuToggle.setAttribute('aria-label', '메뉴 닫기');
+                        menuToggle.innerHTML = '☰';
+                        menuToggle.setAttribute('aria-label', '메뉴 열기');
                     }
                 };
                 
@@ -39,17 +45,23 @@ function detectMobile() {
                 // 메뉴바의 첫 번째 요소로 추가
                 menuLeft.insertBefore(menuToggle, menuLeft.firstChild);
                 
+                // 패널 내부 닫기 버튼 이벤트
+                const closePanelBtn = document.getElementById('close-panel-btn');
+                if (closePanelBtn) {
+                    closePanelBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        closePanel();
+                    });
+                }
+                
                 // 좌측 패널 외부 클릭 시 닫기
                 document.addEventListener('click', (e) => {
                     const leftPanel = document.querySelector('.left-panel');
                     const menuToggle = document.getElementById('menu-toggle-btn');
+                    const closeBtn = document.getElementById('close-panel-btn');
                     if (leftPanel && leftPanel.classList.contains('show')) {
-                        if (!leftPanel.contains(e.target) && e.target !== menuToggle) {
-                            leftPanel.classList.remove('show');
-                            if (menuToggle) {
-                                menuToggle.innerHTML = '☰';
-                                menuToggle.setAttribute('aria-label', '메뉴 열기');
-                            }
+                        if (!leftPanel.contains(e.target) && e.target !== menuToggle && e.target !== closeBtn) {
+                            closePanel();
                         }
                     }
                 });
@@ -77,6 +89,14 @@ window.addEventListener('resize', () => {
                 menuToggle.innerHTML = '☰';
                 menuToggle.setAttribute('aria-label', '메뉴 열기');
                 
+                // 패널 닫기 함수
+                const closePanel = () => {
+                    const leftPanel = document.querySelector('.left-panel');
+                    leftPanel.classList.remove('show');
+                    menuToggle.innerHTML = '☰';
+                    menuToggle.setAttribute('aria-label', '메뉴 열기');
+                };
+                
                 // 메뉴 토글 함수
                 const toggleMenu = (e) => {
                     e.stopPropagation();
@@ -84,18 +104,25 @@ window.addEventListener('resize', () => {
                     const isOpen = leftPanel.classList.contains('show');
                     
                     if (isOpen) {
-                        leftPanel.classList.remove('show');
-                        menuToggle.innerHTML = '☰';
-                        menuToggle.setAttribute('aria-label', '메뉴 열기');
+                        closePanel();
                     } else {
                         leftPanel.classList.add('show');
-                        menuToggle.innerHTML = '×';
-                        menuToggle.setAttribute('aria-label', '메뉴 닫기');
+                        menuToggle.innerHTML = '☰';
+                        menuToggle.setAttribute('aria-label', '메뉴 열기');
                     }
                 };
                 
                 menuToggle.addEventListener('click', toggleMenu);
                 menuLeft.insertBefore(menuToggle, menuLeft.firstChild);
+                
+                // 패널 내부 닫기 버튼 이벤트
+                const closePanelBtn = document.getElementById('close-panel-btn');
+                if (closePanelBtn) {
+                    closePanelBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        closePanel();
+                    });
+                }
             }
         }
     } else if (!isMobile && document.body.classList.contains('mobile-view')) {
