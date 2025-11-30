@@ -222,10 +222,15 @@ button:disabled {
     background-color: #525252;
     padding: 20px;
     cursor: grab;
+    /* 하드웨어 가속 및 부드러운 스크롤 */
+    will-change: scroll-position;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: auto; /* panning 중에는 부드러운 스크롤 비활성화 */
 }
 
 .pdf-viewer-container:active {
     cursor: grabbing;
+    scroll-behavior: auto; /* 드래그 중에는 즉시 반응 */
 }
 
 #pdf-canvas {

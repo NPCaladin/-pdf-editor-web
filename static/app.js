@@ -30,12 +30,27 @@ document.getElementById('btn-add-pages').addEventListener('click', () => addPage
 addPageFileInput.addEventListener('change', handleAddPages);
 mergeFileInput.addEventListener('change', handleMergeFiles);
 
-// 마우스 드래그로 스크롤 (panning)
+// 마우스 드래그로 스크롤 (panning) - 최적화된 버전
 let isPanning = false;
 let panStartX = 0;
 let panStartY = 0;
 let panStartScrollLeft = 0;
 let panStartScrollTop = 0;
+let lastUpdateTime = 0;
+const THROTTLE_MS = 8; // 약 120fps로 제한
+
+function updateScrollPosition(deltaX, deltaY) {
+    const now = performance.now();
+    // 너무 자주 업데이트하지 않도록 throttling
+    if (now - lastUpdateTime < THROTTLE_MS) {
+        return;
+    }
+    lastUpdateTime = now;
+    
+    // 직접 스크롤 업데이트 (즉시 반응)
+    pdfContainer.scrollLeft = panStartScrollLeft - deltaX;
+    pdfContainer.scrollTop = panStartScrollTop - deltaY;
+}
 
 pdfContainer.addEventListener('mousedown', (e) => {
     if (e.button === 0) { // 왼쪽 마우스 버튼
@@ -44,32 +59,51 @@ pdfContainer.addEventListener('mousedown', (e) => {
         panStartY = e.clientY;
         panStartScrollLeft = pdfContainer.scrollLeft;
         panStartScrollTop = pdfContainer.scrollTop;
+        lastUpdateTime = 0; // 초기화
         pdfContainer.style.cursor = 'grabbing';
+        pdfContainer.style.userSelect = 'none'; // 텍스트 선택 방지
+        pdfContainer.style.pointerEvents = 'auto'; // 포인터 이벤트 활성화
         e.preventDefault();
+        e.stopPropagation();
     }
-});
+}, { passive: false });
 
 pdfContainer.addEventListener('mousemove', (e) => {
     if (isPanning) {
         const deltaX = e.clientX - panStartX;
         const deltaY = e.clientY - panStartY;
-        pdfContainer.scrollLeft = panStartScrollLeft - deltaX;
-        pdfContainer.scrollTop = panStartScrollTop - deltaY;
+        updateScrollPosition(deltaX, deltaY);
         e.preventDefault();
+        e.stopPropagation();
     }
-});
+}, { passive: false });
 
 pdfContainer.addEventListener('mouseup', (e) => {
     if (isPanning) {
         isPanning = false;
-        pdfContainer.style.cursor = 'default';
+        pdfContainer.style.cursor = 'grab';
+        pdfContainer.style.userSelect = 'auto'; // 텍스트 선택 복원
+        e.preventDefault();
+        e.stopPropagation();
     }
-});
+}, { passive: false });
 
-pdfContainer.addEventListener('mouseleave', () => {
+pdfContainer.addEventListener('mouseleave', (e) => {
     if (isPanning) {
         isPanning = false;
-        pdfContainer.style.cursor = 'default';
+        pdfContainer.style.cursor = 'grab';
+        pdfContainer.style.userSelect = 'auto';
+        e.preventDefault();
+        e.stopPropagation();
+    }
+}, { passive: false });
+
+// 전역 mouseup 이벤트 (컨테이너 밖에서도 드래그 해제)
+document.addEventListener('mouseup', (e) => {
+    if (isPanning) {
+        isPanning = false;
+        pdfContainer.style.cursor = 'grab';
+        pdfContainer.style.userSelect = 'auto';
     }
 });
 
