@@ -231,3 +231,249 @@ button:disabled {
     display: block;
     margin: 0 auto;
 }
+
+/* 모바일 최적화 */
+@media (max-width: 768px) {
+    body {
+        font-size: 14px;
+    }
+
+    /* 메뉴바 모바일 최적화 */
+    .menu-bar {
+        flex-direction: column;
+        padding: 8px;
+        gap: 8px;
+    }
+
+    .menu-left, .menu-right {
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+        gap: 5px;
+    }
+
+    .btn-primary {
+        padding: 10px 12px;
+        font-size: 13px;
+        min-height: 44px; /* 터치하기 쉬운 크기 */
+        flex: 1;
+        min-width: 0;
+    }
+
+    .btn-primary:not(.btn-save-as) {
+        flex: 1 1 auto;
+    }
+
+    #btn-save-as {
+        width: 100%;
+        margin-top: 5px;
+        writing-mode: horizontal-tb;
+        text-orientation: mixed;
+    }
+
+    button {
+        padding: 10px 12px;
+        font-size: 13px;
+        min-height: 44px;
+    }
+
+    #zoom-label {
+        margin: 0 5px;
+        min-width: 50px;
+        font-size: 13px;
+    }
+
+    /* 좌측 패널 모바일 최적화 */
+    .left-panel {
+        width: 100%;
+        max-width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #ddd;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .left-panel h3 {
+        font-size: 14px;
+        margin-bottom: 8px;
+    }
+
+    .page-list {
+        max-height: 100px;
+        font-size: 12px;
+    }
+
+    .page-item {
+        padding: 8px;
+        font-size: 12px;
+    }
+
+    .page-controls {
+        flex-wrap: wrap;
+    }
+
+    .page-controls button {
+        flex: 1 1 30%;
+        padding: 8px 4px;
+        font-size: 11px;
+        min-height: 36px;
+    }
+
+    /* 메인 콘텐츠 모바일 레이아웃 */
+    .main-content {
+        flex-direction: column;
+    }
+
+    .right-panel {
+        flex: 1;
+        min-height: 0;
+    }
+
+    .pdf-viewer-container {
+        padding: 10px;
+    }
+
+    /* 탭 컨테이너 모바일 최적화 */
+    .tab-container {
+        padding: 0 5px;
+    }
+
+    .tab {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+
+    .tab-label {
+        font-size: 12px;
+        max-width: 100px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .tab-close {
+        width: 18px;
+        height: 18px;
+        font-size: 16px;
+    }
+}
+
+/* 작은 모바일 화면 (480px 이하) */
+@media (max-width: 480px) {
+    .menu-left, .menu-right {
+        gap: 3px;
+    }
+
+    .btn-primary {
+        padding: 8px 8px;
+        font-size: 11px;
+        min-height: 40px;
+    }
+
+    #btn-save-as {
+        font-size: 11px;
+    }
+
+    .left-panel {
+        max-height: 150px;
+    }
+
+    .page-list {
+        max-height: 80px;
+    }
+
+    .tab-label {
+        max-width: 80px;
+    }
+}
+
+/* 모바일 클래스 추가 스타일 */
+.mobile-view .left-panel {
+    position: fixed;
+    top: 0;
+    left: -100%;
+    width: 80%;
+    max-width: 300px;
+    height: 100vh;
+    z-index: 1000;
+    background-color: white;
+    transition: left 0.3s;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+    max-height: 100vh;
+}
+
+.mobile-view .left-panel.show {
+    left: 0;
+}
+
+.mobile-view .right-panel {
+    width: 100%;
+}
+
+.mobile-view .menu-toggle {
+    display: none;
+}
+
+.mobile-view .menu-toggle {
+    display: block;
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 1001;
+    background-color: #2c3e50;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 18px;
+    min-width: 44px;
+    min-height: 44px;
+}
+
+/* 모바일에서 좌측 패널 오버레이 */
+.mobile-view .left-panel {
+    position: fixed;
+    top: 0;
+    left: -100%;
+    width: 80%;
+    max-width: 300px;
+    height: 100vh;
+    z-index: 1000;
+    background-color: white;
+    transition: left 0.3s ease;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+    max-height: 100vh;
+    overflow-y: auto;
+}
+
+.mobile-view .left-panel.show {
+    left: 0;
+}
+
+/* 모바일에서 좌측 패널이 열릴 때 오버레이 */
+.mobile-view .left-panel.show::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: -1;
+}
+
+/* 모바일에서 메뉴바 위치 조정 */
+.mobile-view .menu-bar {
+        margin-top: 0;
+    }
+
+/* 모바일에서 PDF 뷰어 패딩 조정 */
+.mobile-view .pdf-viewer-container {
+    padding: 5px;
+}
+
+/* 모바일에서 캔버스 크기 조정 */
+.mobile-view .pdf-page-canvas {
+    max-width: 100%;
+    height: auto;
+}

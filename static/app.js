@@ -1,6 +1,71 @@
 // PDF.js 설정
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+// 모바일 감지 및 최적화
+function detectMobile() {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
+        || window.innerWidth <= 768;
+    
+    if (isMobile) {
+        document.body.classList.add('mobile-view');
+        // 모바일 메뉴 토글 버튼 추가
+        if (!document.getElementById('menu-toggle-btn')) {
+            const menuToggle = document.createElement('button');
+            menuToggle.id = 'menu-toggle-btn';
+            menuToggle.className = 'menu-toggle';
+            menuToggle.innerHTML = '☰';
+            menuToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const leftPanel = document.querySelector('.left-panel');
+                leftPanel.classList.toggle('show');
+            });
+            document.body.appendChild(menuToggle);
+            
+            // 좌측 패널 외부 클릭 시 닫기
+            document.addEventListener('click', (e) => {
+                const leftPanel = document.querySelector('.left-panel');
+                const menuToggle = document.getElementById('menu-toggle-btn');
+                if (leftPanel && leftPanel.classList.contains('show')) {
+                    if (!leftPanel.contains(e.target) && e.target !== menuToggle) {
+                        leftPanel.classList.remove('show');
+                    }
+                }
+            });
+        }
+    }
+    
+    return isMobile;
+}
+
+// 페이지 로드 시 모바일 감지
+const isMobileDevice = detectMobile();
+
+// 리사이즈 이벤트로 모바일 감지 업데이트
+window.addEventListener('resize', () => {
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile && !document.body.classList.contains('mobile-view')) {
+        document.body.classList.add('mobile-view');
+        if (!document.getElementById('menu-toggle-btn')) {
+            const menuToggle = document.createElement('button');
+            menuToggle.id = 'menu-toggle-btn';
+            menuToggle.className = 'menu-toggle';
+            menuToggle.innerHTML = '☰';
+            menuToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const leftPanel = document.querySelector('.left-panel');
+                leftPanel.classList.toggle('show');
+            });
+            document.body.appendChild(menuToggle);
+        }
+    } else if (!isMobile && document.body.classList.contains('mobile-view')) {
+        document.body.classList.remove('mobile-view');
+        const leftPanel = document.querySelector('.left-panel');
+        if (leftPanel) leftPanel.classList.remove('show');
+        const menuToggle = document.getElementById('menu-toggle-btn');
+        if (menuToggle) menuToggle.remove();
+    }
+});
+
 // 전역 변수
 let tabs = {}; // {tabId: {fileId, pdf, pageCount, currentPage, scale, filename}}
 let currentTabId = null;
@@ -105,11 +170,22 @@ function createTabUI(tabId, filename) {
 async function switchTab(tabId) {
     if (!tabs[tabId]) return;
     
+    // 기존 observer 정리
+    if (intersectionObserver) {
+        intersectionObserver.disconnect();
+        intersectionObserver = null;
+    }
+    
+    // 현재 탭 설정
+    const previousTabId = currentTabId;
     currentTabId = tabId;
     
     // 탭 활성화
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelector(`[data-tab-id="${tabId}"]`).classList.add('active');
+    const tabElement = document.querySelector(`[data-tab-id="${tabId}"]`);
+    if (tabElement) {
+        tabElement.classList.add('active');
+    }
     
     // PDF 로드 및 표시
     if (!tabs[tabId].pdf) {
@@ -118,13 +194,15 @@ async function switchTab(tabId) {
         await renderAllPages(tabId);
     }
     
-    updatePageList(tabId);
-    updateZoomLabel(tabId);
-    enableButtons();
-    updateUndoButton();
-    
-    // 스크롤 observer 재설정
-    setupScrollObserver(tabId);
+    // 현재 탭이 여전히 활성인지 확인 후 업데이트
+    if (currentTabId === tabId && tabs[tabId]) {
+        updatePageList(tabId);
+        updateZoomLabel(tabId);
+        enableButtons();
+        updateUndoButton();
+        // 스크롤 observer 재설정
+        setupScrollObserver(tabId);
+    }
 }
 
 // 탭 닫기
@@ -190,17 +268,25 @@ async function renderAllPages(tabId) {
     const initialPages = Math.min(3, tab.pageCount);
     
     for (let pageNum = 1; pageNum <= initialPages; pageNum++) {
+        // 탭이 변경되었는지 확인
+        if (tabId !== currentTabId || !tabs[tabId]) return;
         await renderPage(tabId, pageNum, container, pageCanvases);
     }
     
     // 나머지 페이지는 백그라운드에서 렌더링
     if (tab.pageCount > initialPages) {
         setTimeout(async () => {
+            // 탭이 변경되었는지 확인
+            if (tabId !== currentTabId || !tabs[tabId]) return;
+            
             for (let pageNum = initialPages + 1; pageNum <= tab.pageCount; pageNum++) {
+                if (tabId !== currentTabId || !tabs[tabId]) return;
                 await renderPage(tabId, pageNum, container, pageCanvases);
             }
-            // 렌더링 완료 후 observer 재설정
-            setupScrollObserver(tabId);
+            // 렌더링 완료 후 observer 재설정 (현재 탭인지 확인)
+            if (tabId === currentTabId && tabs[tabId]) {
+                setupScrollObserver(tabId);
+            }
         }, 100);
     }
 
@@ -208,25 +294,39 @@ async function renderAllPages(tabId) {
     if (!container.dataset.clickListenerAdded) {
         container.addEventListener('click', (e) => {
             const canvas = e.target.closest('canvas[data-page-num]');
-            if (canvas && tabs[tabId]) {
+            if (canvas && currentTabId && tabs[currentTabId]) {
                 const pageNum = parseInt(canvas.dataset.pageNum);
-                tabs[tabId].currentPage = pageNum;
-                updatePageList(tabId);
+                tabs[currentTabId].currentPage = pageNum;
+                updatePageList(currentTabId);
                 canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         });
         container.dataset.clickListenerAdded = 'true';
     }
 
-    // 스크롤 이벤트로 현재 페이지 감지
-    setupScrollObserver(tabId);
+    // 스크롤 이벤트로 현재 페이지 감지 (현재 탭인지 확인)
+    if (tabId === currentTabId && tabs[tabId]) {
+        setupScrollObserver(tabId);
+    }
 }
 
 // 개별 페이지 렌더링 (성능 최적화)
 async function renderPage(tabId, pageNum, container, pageCanvases) {
     const tab = tabs[tabId];
     const page = await tab.pdf.getPage(pageNum);
-    const viewport = page.getViewport({ scale: tab.scale });
+    
+    // 모바일에서 스케일 조정
+    let scale = tab.scale;
+    if (isMobileDevice) {
+        // 모바일에서는 기본 스케일을 화면 크기에 맞게 조정
+        const baseViewport = page.getViewport({ scale: 1.0 });
+        const maxWidth = window.innerWidth - 20;
+        if (baseViewport.width > maxWidth) {
+            scale = (maxWidth / baseViewport.width) * tab.scale;
+        }
+    }
+    
+    const viewport = page.getViewport({ scale: scale });
 
     const pageCanvas = document.createElement('canvas');
     const pageCtx = pageCanvas.getContext('2d');
@@ -236,7 +336,14 @@ async function renderPage(tabId, pageNum, container, pageCanvases) {
     pageCanvas.style.margin = '10px auto';
     pageCanvas.style.border = '1px solid #ccc';
     pageCanvas.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+    pageCanvas.className = 'pdf-page-canvas';
     pageCanvas.dataset.pageNum = pageNum;
+    
+    // 모바일에서 캔버스 크기 조정
+    if (isMobileDevice) {
+        pageCanvas.style.maxWidth = '100%';
+        pageCanvas.style.height = 'auto';
+    }
 
     const renderContext = {
         canvasContext: pageCtx,
@@ -253,36 +360,47 @@ let scrollTimeout = null;
 let intersectionObserver = null;
 
 function setupScrollObserver(tabId) {
-    if (!tabs[tabId]) return;
+    // 현재 탭이 아니면 observer 설정하지 않음
+    if (!tabs[tabId] || tabId !== currentTabId) return;
     
     // 기존 observer 제거
     if (intersectionObserver) {
         intersectionObserver.disconnect();
+        intersectionObserver = null;
     }
 
     const tab = tabs[tabId];
+    if (!tab) return;
+    
     const canvases = pdfContainer.querySelectorAll('canvas[data-page-num]');
+    if (canvases.length === 0) return;
     
     // IntersectionObserver로 현재 보이는 페이지 감지
     intersectionObserver = new IntersectionObserver((entries) => {
+        // 현재 탭이 변경되었으면 무시
+        if (tabId !== currentTabId || !tabs[tabId]) return;
+        
         // 가장 많이 보이는 페이지 찾기
         let maxVisible = 0;
-        let currentPage = tab.currentPage;
+        let detectedPage = tab.currentPage;
         
         entries.forEach(entry => {
             if (entry.isIntersecting && entry.intersectionRatio > maxVisible) {
                 maxVisible = entry.intersectionRatio;
                 const pageNum = parseInt(entry.target.dataset.pageNum);
-                if (pageNum) {
-                    currentPage = pageNum;
+                if (pageNum && pageNum > 0) {
+                    detectedPage = pageNum;
                 }
             }
         });
         
         // 현재 페이지가 변경되었으면 업데이트
-        if (currentPage !== tab.currentPage && currentPage > 0) {
-            tab.currentPage = currentPage;
-            updatePageList(tabId);
+        if (detectedPage !== tab.currentPage && detectedPage > 0 && detectedPage <= tab.pageCount) {
+            tab.currentPage = detectedPage;
+            // 현재 탭인지 다시 확인
+            if (tabId === currentTabId) {
+                updatePageList(tabId);
+            }
         }
     }, {
         root: pdfContainer,
@@ -294,29 +412,31 @@ function setupScrollObserver(tabId) {
     canvases.forEach(canvas => {
         intersectionObserver.observe(canvas);
     });
+}
 
-    // 스크롤 이벤트로도 감지 (백업) - 한 번만 등록
-    if (!pdfContainer.dataset.scrollListenerAdded) {
-        pdfContainer.addEventListener('scroll', () => {
-            if (!currentTabId || !tabs[currentTabId]) return;
-            
-            if (scrollTimeout) {
-                clearTimeout(scrollTimeout);
+// 스크롤 이벤트 리스너는 전역으로 한 번만 등록
+if (!pdfContainer.dataset.scrollListenerAdded) {
+    pdfContainer.addEventListener('scroll', () => {
+        if (!currentTabId || !tabs[currentTabId]) return;
+        
+        if (scrollTimeout) {
+            clearTimeout(scrollTimeout);
+        }
+        
+        scrollTimeout = setTimeout(() => {
+            // 현재 탭 확인
+            if (currentTabId && tabs[currentTabId]) {
+                updateCurrentPageFromScroll(currentTabId);
             }
-            
-            scrollTimeout = setTimeout(() => {
-                if (currentTabId && tabs[currentTabId]) {
-                    updateCurrentPageFromScroll(currentTabId);
-                }
-            }, 100); // 디바운싱
-        }, { passive: true });
-        pdfContainer.dataset.scrollListenerAdded = 'true';
-    }
+        }, 100); // 디바운싱
+    }, { passive: true });
+    pdfContainer.dataset.scrollListenerAdded = 'true';
 }
 
 // 스크롤 위치로 현재 페이지 계산
 function updateCurrentPageFromScroll(tabId) {
-    if (!tabs[tabId]) return;
+    // 현재 탭인지 확인
+    if (!tabs[tabId] || tabId !== currentTabId) return;
     
     const tab = tabs[tabId];
     const container = pdfContainer;
@@ -324,6 +444,8 @@ function updateCurrentPageFromScroll(tabId) {
     const containerCenter = containerRect.top + containerRect.height / 2;
     
     const canvases = container.querySelectorAll('canvas[data-page-num]');
+    if (canvases.length === 0) return;
+    
     let closestPage = tab.currentPage;
     let minDistance = Infinity;
     
@@ -334,11 +456,15 @@ function updateCurrentPageFromScroll(tabId) {
         
         if (distance < minDistance) {
             minDistance = distance;
-            closestPage = parseInt(canvas.dataset.pageNum);
+            const pageNum = parseInt(canvas.dataset.pageNum);
+            if (pageNum && pageNum > 0 && pageNum <= tab.pageCount) {
+                closestPage = pageNum;
+            }
         }
     });
     
-    if (closestPage !== tab.currentPage && closestPage > 0) {
+    // 현재 페이지가 변경되었고, 여전히 현재 탭인지 확인
+    if (closestPage !== tab.currentPage && closestPage > 0 && closestPage <= tab.pageCount && tabId === currentTabId) {
         tab.currentPage = closestPage;
         updatePageList(tabId);
     }
@@ -346,56 +472,36 @@ function updateCurrentPageFromScroll(tabId) {
 
 // 페이지 목록 업데이트 (성능 최적화)
 function updatePageList(tabId) {
-    if (!tabs[tabId]) return;
+    // 현재 탭인지 확인 - 현재 탭이 아니면 업데이트하지 않음
+    if (!tabs[tabId] || tabId !== currentTabId) return;
     
     const tab = tabs[tabId];
     const currentPage = tab.currentPage;
     
-    // 기존 아이템 재사용 (불필요한 DOM 재생성 방지)
-    const existingItems = pageList.querySelectorAll('.page-item');
-    const itemCount = Math.max(existingItems.length, tab.pageCount);
+    // 페이지 목록 완전히 재생성 (탭 간 충돌 방지)
+    pageList.innerHTML = '';
     
     for (let i = 1; i <= tab.pageCount; i++) {
-        let item = existingItems[i - 1];
+        const item = document.createElement('div');
+        item.className = 'page-item' + (i === currentPage ? ' active' : '');
+        item.textContent = `페이지 ${i}`;
+        item.dataset.pageNum = i;
         
-        if (!item) {
-            // 새 아이템 생성
-            item = document.createElement('div');
-            item.className = 'page-item';
-            item.textContent = `페이지 ${i}`;
-            item.dataset.pageNum = i;
+        // 클릭 이벤트
+        item.addEventListener('click', () => {
+            // 현재 탭인지 다시 확인
+            if (tabId !== currentTabId || !tabs[tabId]) return;
             
-            // 이벤트 위임으로 최적화
-            item.addEventListener('click', () => {
-                const pageNum = parseInt(item.dataset.pageNum);
-                tab.currentPage = pageNum;
-                updatePageList(tabId);
-                const canvas = document.querySelector(`canvas[data-page-num="${pageNum}"]`);
-                if (canvas) {
-                    canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            });
-            
-            pageList.appendChild(item);
-        } else {
-            // 기존 아이템 업데이트
-            item.textContent = `페이지 ${i}`;
-            item.dataset.pageNum = i;
-        }
-        
-        // active 클래스 업데이트 (필요한 경우만)
-        if (i === currentPage) {
-            if (!item.classList.contains('active')) {
-                item.classList.add('active');
+            const pageNum = parseInt(item.dataset.pageNum);
+            tabs[tabId].currentPage = pageNum;
+            updatePageList(tabId);
+            const canvas = document.querySelector(`canvas[data-page-num="${pageNum}"]`);
+            if (canvas) {
+                canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
-        } else {
-            item.classList.remove('active');
-        }
-    }
-    
-    // 불필요한 아이템 제거
-    while (existingItems.length > tab.pageCount) {
-        pageList.removeChild(existingItems[existingItems.length - 1]);
+        });
+        
+        pageList.appendChild(item);
     }
     
     // 버튼 활성화/비활성화
@@ -590,9 +696,23 @@ async function handleMergeFiles(event) {
     try {
         if (mergeOption && currentTabId) {
             // 열려있는 파일과 합치기
-            const tab = tabs[currentTabId];
+            const activeTabId = currentTabId; // 현재 탭 ID 저장
+            const tab = tabs[activeTabId];
+            
+            if (!tab) {
+                alert('현재 탭을 찾을 수 없습니다.');
+                mergeFileInput.value = '';
+                return;
+            }
             
             for (const file of files) {
+                // 탭이 변경되었는지 확인
+                if (currentTabId !== activeTabId || !tabs[activeTabId]) {
+                    alert('탭이 변경되어 합치기가 취소되었습니다.');
+                    mergeFileInput.value = '';
+                    return;
+                }
+                
                 const formData = new FormData();
                 formData.append('file', file);
                 
@@ -625,15 +745,29 @@ async function handleMergeFiles(event) {
                 }
             }
             
+            // 현재 탭이 여전히 활성인지 확인
+            if (currentTabId !== activeTabId || !tabs[activeTabId] || tabs[activeTabId].fileId !== tab.fileId) {
+                alert('탭이 변경되어 업데이트가 취소되었습니다.');
+                mergeFileInput.value = '';
+                return;
+            }
+            
             // PDF 다시 로드 (파일이 업데이트되었으므로)
             const response = await fetch(`/api/pdf/${tab.fileId}`);
             const arrayBuffer = await response.arrayBuffer();
             const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
             tab.pdf = await loadingTask.promise;
             
-            await renderAllPages(currentTabId);
-            updatePageList(currentTabId);
-            updateUndoButton();
+            // 현재 탭 확인 후 렌더링
+            if (currentTabId === activeTabId && tabs[activeTabId] && tabs[activeTabId].fileId === tab.fileId) {
+                await renderAllPages(activeTabId);
+                updatePageList(activeTabId);
+                updateZoomLabel(activeTabId);
+                updateUndoButton();
+                // Observer 재설정
+                setupScrollObserver(activeTabId);
+                alert('PDF 합치기가 완료되었습니다.');
+            }
         } else {
             // 선택한 파일들만 합치기 (새 탭 생성)
             const formData = new FormData();
@@ -691,12 +825,25 @@ async function handleMergeFiles(event) {
             };
             
             createTabUI(tabId, tabs[tabId].filename);
-            switchTab(tabId);
+            
+            // 탭 전환 (현재 탭을 명시적으로 설정)
+            currentTabId = tabId;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`[data-tab-id="${tabId}"]`).classList.add('active');
             
             // PDF 로드
             await loadPdf(tabId);
-            updatePageList(tabId);
-            updateUndoButton();
+            
+            // 현재 탭 확인 후 업데이트
+            if (currentTabId === tabId && tabs[tabId]) {
+                await renderAllPages(tabId);
+                updatePageList(tabId);
+                updateZoomLabel(tabId);
+                enableButtons();
+                updateUndoButton();
+                // Observer 설정
+                setupScrollObserver(tabId);
+            }
         }
     } catch (error) {
         console.error('Error merging files:', error);
