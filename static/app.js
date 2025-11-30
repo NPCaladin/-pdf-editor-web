@@ -122,6 +122,9 @@ async function switchTab(tabId) {
     updateZoomLabel(tabId);
     enableButtons();
     updateUndoButton();
+    
+    // 스크롤 observer 재설정
+    setupScrollObserver(tabId);
 }
 
 // 탭 닫기
@@ -172,7 +175,7 @@ async function loadPdf(tabId) {
     }
 }
 
-// 모든 페이지 렌더링
+// 모든 페이지 렌더링 (성능 최적화)
 async function renderAllPages(tabId) {
     if (!tabs[tabId] || !tabs[tabId].pdf) return;
 
@@ -182,69 +185,227 @@ async function renderAllPages(tabId) {
     const tab = tabs[tabId];
     const pageCanvases = [];
 
-    for (let pageNum = 1; pageNum <= tab.pageCount; pageNum++) {
-        const page = await tab.pdf.getPage(pageNum);
-        const viewport = page.getViewport({ scale: tab.scale });
-
-        const pageCanvas = document.createElement('canvas');
-        const pageCtx = pageCanvas.getContext('2d');
-        pageCanvas.height = viewport.height;
-        pageCanvas.width = viewport.width;
-        pageCanvas.style.display = 'block';
-        pageCanvas.style.margin = '10px auto';
-        pageCanvas.style.border = '1px solid #ccc';
-        pageCanvas.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-        pageCanvas.dataset.pageNum = pageNum;
-
-        const renderContext = {
-            canvasContext: pageCtx,
-            viewport: viewport
-        };
-
-        await page.render(renderContext).promise;
-        container.appendChild(pageCanvas);
-        pageCanvases.push(pageCanvas);
+    // 순차 렌더링으로 초기 로딩 속도 개선
+    // 첫 몇 페이지만 먼저 렌더링하고 나머지는 지연 로딩
+    const initialPages = Math.min(3, tab.pageCount);
+    
+    for (let pageNum = 1; pageNum <= initialPages; pageNum++) {
+        await renderPage(tabId, pageNum, container, pageCanvases);
+    }
+    
+    // 나머지 페이지는 백그라운드에서 렌더링
+    if (tab.pageCount > initialPages) {
+        setTimeout(async () => {
+            for (let pageNum = initialPages + 1; pageNum <= tab.pageCount; pageNum++) {
+                await renderPage(tabId, pageNum, container, pageCanvases);
+            }
+            // 렌더링 완료 후 observer 재설정
+            setupScrollObserver(tabId);
+        }, 100);
     }
 
-    // 페이지 클릭 이벤트
-    pageCanvases.forEach((canvas, index) => {
-        canvas.addEventListener('click', () => {
-            tab.currentPage = index + 1;
-            updatePageList(tabId);
-            canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // 페이지 클릭 이벤트 (이벤트 위임으로 최적화 - 한 번만 등록)
+    if (!container.dataset.clickListenerAdded) {
+        container.addEventListener('click', (e) => {
+            const canvas = e.target.closest('canvas[data-page-num]');
+            if (canvas && tabs[tabId]) {
+                const pageNum = parseInt(canvas.dataset.pageNum);
+                tabs[tabId].currentPage = pageNum;
+                updatePageList(tabId);
+                canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         });
-    });
+        container.dataset.clickListenerAdded = 'true';
+    }
+
+    // 스크롤 이벤트로 현재 페이지 감지
+    setupScrollObserver(tabId);
 }
 
-// 페이지 목록 업데이트
+// 개별 페이지 렌더링 (성능 최적화)
+async function renderPage(tabId, pageNum, container, pageCanvases) {
+    const tab = tabs[tabId];
+    const page = await tab.pdf.getPage(pageNum);
+    const viewport = page.getViewport({ scale: tab.scale });
+
+    const pageCanvas = document.createElement('canvas');
+    const pageCtx = pageCanvas.getContext('2d');
+    pageCanvas.height = viewport.height;
+    pageCanvas.width = viewport.width;
+    pageCanvas.style.display = 'block';
+    pageCanvas.style.margin = '10px auto';
+    pageCanvas.style.border = '1px solid #ccc';
+    pageCanvas.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+    pageCanvas.dataset.pageNum = pageNum;
+
+    const renderContext = {
+        canvasContext: pageCtx,
+        viewport: viewport
+    };
+
+    await page.render(renderContext).promise;
+    container.appendChild(pageCanvas);
+    pageCanvases.push(pageCanvas);
+}
+
+// 스크롤 감지 및 현재 페이지 업데이트 (성능 최적화)
+let scrollTimeout = null;
+let intersectionObserver = null;
+
+function setupScrollObserver(tabId) {
+    if (!tabs[tabId]) return;
+    
+    // 기존 observer 제거
+    if (intersectionObserver) {
+        intersectionObserver.disconnect();
+    }
+
+    const tab = tabs[tabId];
+    const canvases = pdfContainer.querySelectorAll('canvas[data-page-num]');
+    
+    // IntersectionObserver로 현재 보이는 페이지 감지
+    intersectionObserver = new IntersectionObserver((entries) => {
+        // 가장 많이 보이는 페이지 찾기
+        let maxVisible = 0;
+        let currentPage = tab.currentPage;
+        
+        entries.forEach(entry => {
+            if (entry.isIntersecting && entry.intersectionRatio > maxVisible) {
+                maxVisible = entry.intersectionRatio;
+                const pageNum = parseInt(entry.target.dataset.pageNum);
+                if (pageNum) {
+                    currentPage = pageNum;
+                }
+            }
+        });
+        
+        // 현재 페이지가 변경되었으면 업데이트
+        if (currentPage !== tab.currentPage && currentPage > 0) {
+            tab.currentPage = currentPage;
+            updatePageList(tabId);
+        }
+    }, {
+        root: pdfContainer,
+        rootMargin: '-20% 0px -20% 0px', // 중앙 60% 영역에서 감지
+        threshold: [0, 0.1, 0.5, 1.0]
+    });
+
+    // 모든 캔버스 관찰
+    canvases.forEach(canvas => {
+        intersectionObserver.observe(canvas);
+    });
+
+    // 스크롤 이벤트로도 감지 (백업) - 한 번만 등록
+    if (!pdfContainer.dataset.scrollListenerAdded) {
+        pdfContainer.addEventListener('scroll', () => {
+            if (!currentTabId || !tabs[currentTabId]) return;
+            
+            if (scrollTimeout) {
+                clearTimeout(scrollTimeout);
+            }
+            
+            scrollTimeout = setTimeout(() => {
+                if (currentTabId && tabs[currentTabId]) {
+                    updateCurrentPageFromScroll(currentTabId);
+                }
+            }, 100); // 디바운싱
+        }, { passive: true });
+        pdfContainer.dataset.scrollListenerAdded = 'true';
+    }
+}
+
+// 스크롤 위치로 현재 페이지 계산
+function updateCurrentPageFromScroll(tabId) {
+    if (!tabs[tabId]) return;
+    
+    const tab = tabs[tabId];
+    const container = pdfContainer;
+    const containerRect = container.getBoundingClientRect();
+    const containerCenter = containerRect.top + containerRect.height / 2;
+    
+    const canvases = container.querySelectorAll('canvas[data-page-num]');
+    let closestPage = tab.currentPage;
+    let minDistance = Infinity;
+    
+    canvases.forEach(canvas => {
+        const canvasRect = canvas.getBoundingClientRect();
+        const canvasCenter = canvasRect.top + canvasRect.height / 2;
+        const distance = Math.abs(canvasCenter - containerCenter);
+        
+        if (distance < minDistance) {
+            minDistance = distance;
+            closestPage = parseInt(canvas.dataset.pageNum);
+        }
+    });
+    
+    if (closestPage !== tab.currentPage && closestPage > 0) {
+        tab.currentPage = closestPage;
+        updatePageList(tabId);
+    }
+}
+
+// 페이지 목록 업데이트 (성능 최적화)
 function updatePageList(tabId) {
     if (!tabs[tabId]) return;
     
     const tab = tabs[tabId];
-    pageList.innerHTML = '';
+    const currentPage = tab.currentPage;
+    
+    // 기존 아이템 재사용 (불필요한 DOM 재생성 방지)
+    const existingItems = pageList.querySelectorAll('.page-item');
+    const itemCount = Math.max(existingItems.length, tab.pageCount);
     
     for (let i = 1; i <= tab.pageCount; i++) {
-        const item = document.createElement('div');
-        item.className = 'page-item' + (i === tab.currentPage ? ' active' : '');
-        item.textContent = `페이지 ${i}`;
-        item.addEventListener('click', () => {
-            tab.currentPage = i;
-            updatePageList(tabId);
-            const canvas = document.querySelector(`canvas[data-page-num="${i}"]`);
-            if (canvas) {
-                canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        let item = existingItems[i - 1];
+        
+        if (!item) {
+            // 새 아이템 생성
+            item = document.createElement('div');
+            item.className = 'page-item';
+            item.textContent = `페이지 ${i}`;
+            item.dataset.pageNum = i;
+            
+            // 이벤트 위임으로 최적화
+            item.addEventListener('click', () => {
+                const pageNum = parseInt(item.dataset.pageNum);
+                tab.currentPage = pageNum;
+                updatePageList(tabId);
+                const canvas = document.querySelector(`canvas[data-page-num="${pageNum}"]`);
+                if (canvas) {
+                    canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            });
+            
+            pageList.appendChild(item);
+        } else {
+            // 기존 아이템 업데이트
+            item.textContent = `페이지 ${i}`;
+            item.dataset.pageNum = i;
+        }
+        
+        // active 클래스 업데이트 (필요한 경우만)
+        if (i === currentPage) {
+            if (!item.classList.contains('active')) {
+                item.classList.add('active');
             }
-        });
-        pageList.appendChild(item);
+        } else {
+            item.classList.remove('active');
+        }
+    }
+    
+    // 불필요한 아이템 제거
+    while (existingItems.length > tab.pageCount) {
+        pageList.removeChild(existingItems[existingItems.length - 1]);
     }
     
     // 버튼 활성화/비활성화
-    document.getElementById('btn-move-up').disabled = tab.currentPage <= 1;
-    document.getElementById('btn-move-down').disabled = tab.currentPage >= tab.pageCount;
+    document.getElementById('btn-move-up').disabled = currentPage <= 1;
+    document.getElementById('btn-move-down').disabled = currentPage >= tab.pageCount;
     document.getElementById('btn-delete-page').disabled = tab.pageCount <= 1;
 }
 
-// 줌
+// 줌 (성능 최적화)
+let zoomTimeout = null;
 function zoom(factor) {
     if (!currentTabId || !tabs[currentTabId]) return;
     
@@ -252,7 +413,15 @@ function zoom(factor) {
     tab.scale *= factor;
     tab.scale = Math.max(0.5, Math.min(tab.scale, 3.0));
     updateZoomLabel(currentTabId);
-    renderAllPages(currentTabId);
+    
+    // 디바운싱으로 연속 줌 시 성능 개선
+    if (zoomTimeout) {
+        clearTimeout(zoomTimeout);
+    }
+    
+    zoomTimeout = setTimeout(() => {
+        renderAllPages(currentTabId);
+    }, 150); // 150ms 후 렌더링
 }
 
 function updateZoomLabel(tabId) {
