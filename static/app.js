@@ -36,18 +36,10 @@ let panStartX = 0;
 let panStartY = 0;
 let panStartScrollLeft = 0;
 let panStartScrollTop = 0;
-let lastUpdateTime = 0;
-const THROTTLE_MS = 8; // 약 120fps로 제한
 
+// throttling 제거 - 직접 스크롤 업데이트로 더 부드럽게
 function updateScrollPosition(deltaX, deltaY) {
-    const now = performance.now();
-    // 너무 자주 업데이트하지 않도록 throttling
-    if (now - lastUpdateTime < THROTTLE_MS) {
-        return;
-    }
-    lastUpdateTime = now;
-    
-    // 직접 스크롤 업데이트 (즉시 반응)
+    // 직접 스크롤 업데이트 (즉시 반응, 최대한 부드럽게)
     pdfContainer.scrollLeft = panStartScrollLeft - deltaX;
     pdfContainer.scrollTop = panStartScrollTop - deltaY;
 }
@@ -59,7 +51,6 @@ pdfContainer.addEventListener('mousedown', (e) => {
         panStartY = e.clientY;
         panStartScrollLeft = pdfContainer.scrollLeft;
         panStartScrollTop = pdfContainer.scrollTop;
-        lastUpdateTime = 0; // 초기화
         pdfContainer.style.cursor = 'grabbing';
         pdfContainer.style.userSelect = 'none'; // 텍스트 선택 방지
         pdfContainer.style.pointerEvents = 'auto'; // 포인터 이벤트 활성화
