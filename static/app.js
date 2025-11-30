@@ -16,11 +16,26 @@ function detectMobile() {
                 menuToggle.id = 'menu-toggle-btn';
                 menuToggle.className = 'menu-toggle';
                 menuToggle.innerHTML = '☰';
-                menuToggle.addEventListener('click', (e) => {
+                menuToggle.setAttribute('aria-label', '메뉴 열기');
+                
+                // 메뉴 토글 함수
+                const toggleMenu = (e) => {
                     e.stopPropagation();
                     const leftPanel = document.querySelector('.left-panel');
-                    leftPanel.classList.toggle('show');
-                });
+                    const isOpen = leftPanel.classList.contains('show');
+                    
+                    if (isOpen) {
+                        leftPanel.classList.remove('show');
+                        menuToggle.innerHTML = '☰';
+                        menuToggle.setAttribute('aria-label', '메뉴 열기');
+                    } else {
+                        leftPanel.classList.add('show');
+                        menuToggle.innerHTML = '×';
+                        menuToggle.setAttribute('aria-label', '메뉴 닫기');
+                    }
+                };
+                
+                menuToggle.addEventListener('click', toggleMenu);
                 // 메뉴바의 첫 번째 요소로 추가
                 menuLeft.insertBefore(menuToggle, menuLeft.firstChild);
                 
@@ -31,6 +46,10 @@ function detectMobile() {
                     if (leftPanel && leftPanel.classList.contains('show')) {
                         if (!leftPanel.contains(e.target) && e.target !== menuToggle) {
                             leftPanel.classList.remove('show');
+                            if (menuToggle) {
+                                menuToggle.innerHTML = '☰';
+                                menuToggle.setAttribute('aria-label', '메뉴 열기');
+                            }
                         }
                     }
                 });
@@ -56,11 +75,26 @@ window.addEventListener('resize', () => {
                 menuToggle.id = 'menu-toggle-btn';
                 menuToggle.className = 'menu-toggle';
                 menuToggle.innerHTML = '☰';
-                menuToggle.addEventListener('click', (e) => {
+                menuToggle.setAttribute('aria-label', '메뉴 열기');
+                
+                // 메뉴 토글 함수
+                const toggleMenu = (e) => {
                     e.stopPropagation();
                     const leftPanel = document.querySelector('.left-panel');
-                    leftPanel.classList.toggle('show');
-                });
+                    const isOpen = leftPanel.classList.contains('show');
+                    
+                    if (isOpen) {
+                        leftPanel.classList.remove('show');
+                        menuToggle.innerHTML = '☰';
+                        menuToggle.setAttribute('aria-label', '메뉴 열기');
+                    } else {
+                        leftPanel.classList.add('show');
+                        menuToggle.innerHTML = '×';
+                        menuToggle.setAttribute('aria-label', '메뉴 닫기');
+                    }
+                };
+                
+                menuToggle.addEventListener('click', toggleMenu);
                 menuLeft.insertBefore(menuToggle, menuLeft.firstChild);
             }
         }
