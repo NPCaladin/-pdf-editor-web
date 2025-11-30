@@ -8,29 +8,33 @@ function detectMobile() {
     
     if (isMobile) {
         document.body.classList.add('mobile-view');
-        // 모바일 메뉴 토글 버튼 추가
+        // 모바일 메뉴 토글 버튼을 메뉴바 안에 추가
         if (!document.getElementById('menu-toggle-btn')) {
-            const menuToggle = document.createElement('button');
-            menuToggle.id = 'menu-toggle-btn';
-            menuToggle.className = 'menu-toggle';
-            menuToggle.innerHTML = '☰';
-            menuToggle.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const leftPanel = document.querySelector('.left-panel');
-                leftPanel.classList.toggle('show');
-            });
-            document.body.appendChild(menuToggle);
-            
-            // 좌측 패널 외부 클릭 시 닫기
-            document.addEventListener('click', (e) => {
-                const leftPanel = document.querySelector('.left-panel');
-                const menuToggle = document.getElementById('menu-toggle-btn');
-                if (leftPanel && leftPanel.classList.contains('show')) {
-                    if (!leftPanel.contains(e.target) && e.target !== menuToggle) {
-                        leftPanel.classList.remove('show');
+            const menuLeft = document.querySelector('.menu-left');
+            if (menuLeft) {
+                const menuToggle = document.createElement('button');
+                menuToggle.id = 'menu-toggle-btn';
+                menuToggle.className = 'menu-toggle';
+                menuToggle.innerHTML = '☰';
+                menuToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const leftPanel = document.querySelector('.left-panel');
+                    leftPanel.classList.toggle('show');
+                });
+                // 메뉴바의 첫 번째 요소로 추가
+                menuLeft.insertBefore(menuToggle, menuLeft.firstChild);
+                
+                // 좌측 패널 외부 클릭 시 닫기
+                document.addEventListener('click', (e) => {
+                    const leftPanel = document.querySelector('.left-panel');
+                    const menuToggle = document.getElementById('menu-toggle-btn');
+                    if (leftPanel && leftPanel.classList.contains('show')) {
+                        if (!leftPanel.contains(e.target) && e.target !== menuToggle) {
+                            leftPanel.classList.remove('show');
+                        }
                     }
-                }
-            });
+                });
+            }
         }
     }
     
@@ -46,16 +50,19 @@ window.addEventListener('resize', () => {
     if (isMobile && !document.body.classList.contains('mobile-view')) {
         document.body.classList.add('mobile-view');
         if (!document.getElementById('menu-toggle-btn')) {
-            const menuToggle = document.createElement('button');
-            menuToggle.id = 'menu-toggle-btn';
-            menuToggle.className = 'menu-toggle';
-            menuToggle.innerHTML = '☰';
-            menuToggle.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const leftPanel = document.querySelector('.left-panel');
-                leftPanel.classList.toggle('show');
-            });
-            document.body.appendChild(menuToggle);
+            const menuLeft = document.querySelector('.menu-left');
+            if (menuLeft) {
+                const menuToggle = document.createElement('button');
+                menuToggle.id = 'menu-toggle-btn';
+                menuToggle.className = 'menu-toggle';
+                menuToggle.innerHTML = '☰';
+                menuToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const leftPanel = document.querySelector('.left-panel');
+                    leftPanel.classList.toggle('show');
+                });
+                menuLeft.insertBefore(menuToggle, menuLeft.firstChild);
+            }
         }
     } else if (!isMobile && document.body.classList.contains('mobile-view')) {
         document.body.classList.remove('mobile-view');
